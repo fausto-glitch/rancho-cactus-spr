@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rancho Cactus SPR — Panel de Control</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
+<style>
+  :root {
+    --verde: #2d6a4f; --verde-claro: #40916c; --dorado: #d4a017;
+    --fondo: #f7f3ee; --tarjeta: #fff; --borde: #e0d5c8;
+    --texto: #2c2c2c; --gris: #6b6b6b; --rojo: #c0392b; --azul: #1a6fa8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--fondo); color: var(--texto); }
+  header { background: var(--verde); color: white; padding: 16px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 1.4rem; font-weight: 700; }
+  header p { font-size: 0.82rem; opacity: 0.8; }
+  .badge { background: var(--dorado); color: #1a1a1a; border-radius: 12px; padding: 2px 10px; font-size: 0.75rem; font-weight: 700; }
+
+  nav { background: var(--verde-claro); display: flex; gap: 0; padding: 0 16px; flex-wrap: wrap; }
+  nav button { background: none; border: none; color: rgba(255,255,255,0.75); padding: 11px 16px; cursor: pointer; font-size: 0.88rem; font-weight: 500; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+  nav button.active { color: white; border-bottom-color: var(--dorado); }
+  nav button:hover { color: white; }
+
+  .tab { display: none; padding: 20px; max-width: 1300px; margin: 0 auto; }
+  .tab.active { display: block; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .card { background: var(--tarjeta); border-radius: 10px; padding: 14px 12px; border: 1px solid var(--borde); text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
+  .card .val { font-size: 1.9rem; font-weight: 700; color: var(--verde); line-height: 1; }
+  .card .lbl { font-size: 0.72rem; color: var(--gris); margin-top: 4px; line-height: 1.3; }
+  .card.warn .val { color: var(--dorado); }
+  .card.danger .val { color: var(--rojo); }
+  .card.info .val { color: var(--azul); }
+
+  .panel { background: var(--tarjeta); border-radius: 10px; border: 1px solid var(--borde); padding: 18px 20px; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
+  .panel h2 { font-size: 1.02rem; font-weight: 700; color: var(--verde); margin-bottom: 14px; border-bottom: 2px solid var(--borde); padding-bottom: 8px; }
+  .panel h3 { font-size: 0.92rem; font-weight: 600; color: var(--verde-claro); margin: 14px 0 8px; }
+
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 700px) { .charts { grid-template-columns: 1fr; } }
+  .chart-wrap { background: var(--tarjeta); border-radius: 10px; border: 1px solid var(--borde); padding: 14px 16px; height: 270px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
+  .chart-wrap h3 { font-size: 0.82rem; color: var(--gris); margin-bottom: 8px; font-weight: 600; }
+  canvas { max-height: 210px; }
+
+  .filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  .filtros input, .filtros select { padding: 6px 10px; border: 1px solid var(--borde); border-radius: 6px; font-size: 0.83rem; background: white; }
+
+  table.tabla { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  table.tabla th { background: var(--verde); color: white; padding: 8px 10px; text-align: left; font-weight: 600; position: sticky; top: 0; z-index: 1; }
+  table.tabla td { padding: 6px 10px; border-bottom: 1px solid var(--borde); }
+  table.tabla tr:hover td { background: #f0ebe3; }
+  .ba { background: #d4edda; color: #155724; border-radius: 10px; padding: 2px 8px; font-size: 0.73rem; font-weight: 600; }
+  .bv { background: #f8d7da; color: #721c24; border-radius: 10px; padding: 2px 8px; font-size: 0.73rem; font-weight: 600; }
+  .bm { background: #d6d8d9; color: #383d41; border-radius: 10px; padding: 2px 8px; font-size: 0.73rem; font-weight: 600; }
+
+  .tbl-wrap { max-height: 480px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--borde); }
+
+  .info-box { background: #e8f5e9; border-left: 4px solid var(--verde); padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 0.86rem; line-height: 1.6; }
+  .info-box.warn { background: #fff8e1; border-color: var(--dorado); }
+  .info-box.azul { background: #e3f2fd; border-color: var(--azul); }
+
+  .fin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 600px) { .fin-grid { grid-template-columns: 1fr; } }
+  .fin-item { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--borde); font-size: 0.86rem; gap: 8px; }
+  .fin-item .monto { font-weight: 600; white-space: nowrap; }
+  .fin-item .monto.g { color: var(--rojo); }
+  .fin-item .monto.i { color: var(--verde); }
+
+  .proto-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 700px) { .proto-grid { grid-template-columns: 1fr; } }
+  .proto-card { border: 1px solid var(--borde); border-radius: 8px; padding: 13px; background: white; }
+  .proto-card h4 { color: var(--verde); font-size: 0.88rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .proto-card ul { padding-left: 16px; font-size: 0.81rem; line-height: 1.7; }
+  .ptag { background: var(--verde); color: white; border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; }
+  .ptag.w { background: var(--dorado); color: #1a1a1a; }
+  .ptag.r { background: var(--rojo); }
+
+  .cal-table { width: 100%; border-collapse: collapse; font-size: 0.79rem; }
+  .cal-table th { background: var(--verde); color: white; padding: 8px 10px; text-align: left; }
+  .cal-table td { padding: 6px 10px; border-bottom: 1px solid var(--borde); }
+  .cal-table tr:nth-child(even) td { background: #f7f3ee; }
+
+  .peso-bar { height: 5px; background: #dcedc8; border-radius: 3px; margin-top: 3px; }
+  .peso-fill { height: 100%; background: var(--verde-claro); border-radius: 3px; }
+
+  .btn { background: var(--verde); color: white; border: none; padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 0.83rem; }
+  .btn:hover { background: var(--verde-claro); }
+  .renta-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; background: white; border: 1px solid var(--borde); border-radius: 6px; margin-bottom: 5px; font-size: 0.83rem; gap: 8px; }
+  textarea.nota { width: 100%; min-height: 120px; border: 1px solid var(--borde); border-radius: 6px; padding: 10px; font-size: 0.86rem; font-family: inherit; resize: vertical; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🐄 Rancho Cactus SPR — Panel de Control</h1>
+    <p>COMPAÑÍA GANADERA EL CACTUS SPR DE RL DE CV &nbsp;·&nbsp; RFC: GCA0805297XA &nbsp;·&nbsp; Cta Afirme: 011391018857</p>
+  </div>
+  <span class="badge" style="margin-left:auto;">Maines, Chihuahua</span>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('inventario',this)">📋 Inventario</button>
+  <button onclick="showTab('engorda',this)">🐂 Engorda / Crías</button>
+  <button onclick="showTab('siniiga',this)">🏷️ SINIIGAs</button>
+  <button onclick="showTab('finanzas',this)">💰 Finanzas</button>
+  <button onclick="showTab('protocolos',this)">💉 Protocolos</button>
+  <button onclick="showTab('renta',this)">🏠 Renta</button>
+  <button onclick="showTab('notas',this)">📝 Notas</button>
+</nav>
+
+<!-- ====== INVENTARIO ====== -->
+<div id="tab-inventario" class="tab active">
+  <div class="info-box">
+    <strong>📊 Inventario Maines 2026:</strong> <strong>189 vacas CACTUS</strong> registradas (No. 1–189), todas activas salvo 3 bajas.
+    <strong>186 activas</strong>, <strong>3 muertas</strong>. De las activas, 91 gestantes confirmadas (3–8m) y 20 vacías.
+    Las 126 crías nacidas en 2025 están en la pestaña <em>Engorda</em>.
+  </div>
+  <div class="cards">
+    <div class="card"><div class="val">189</div><div class="lbl">Total<br>registradas</div></div>
+    <div class="card"><div class="val">186</div><div class="lbl">Activas<br>hoy</div></div>
+    <div class="card"><div class="val">91</div><div class="lbl">Gestantes<br>confirmadas</div></div>
+    <div class="card"><div class="val">20</div><div class="lbl">Vacías<br>confirmadas</div></div>
+    <div class="card danger"><div class="val">3</div><div class="lbl">Muertas<br>(histórico)</div></div>
+    <div class="card info"><div class="val">4.89</div><div class="lbl">C.C. prom.<br>confirmadas</div></div>
+    <div class="card info"><div class="val">126</div><div class="lbl">Crías nac.<br>2025</div></div>
+    <div class="card info"><div class="val">3,834</div><div class="lbl">Hectáreas<br>Rancho</div></div>
+  </div>
+  <div class="charts">
+    <div class="chart-wrap"><h3>Estado fisiológico (112 activas)</h3><canvas id="chartEstado"></canvas></div>
+    <div class="chart-wrap"><h3>Gestantes por mes de gestación</h3><canvas id="chartGest"></canvas></div>
+  </div>
+  <div class="panel">
+    <h2>🐄 Vacas Activas (112)</h2>
+    <div class="filtros">
+      <input type="text" id="buscar" placeholder="Buscar pistola, privado, obs…" oninput="filtrarVacas()">
+      <select id="filRaza" onchange="filtrarVacas()">
+        <option value="">Todas las razas</option>
+        <option value="HD">HD</option>
+        <option value="ASHD">ASHD</option>
+        <option value="ASR">ASR</option>
+        <option value="HDAS">HDAS</option>
+      </select>
+      <select id="filEstado" onchange="filtrarVacas()">
+        <option value="">Todos los estados</option>
+        <option value="3">3m gestante</option>
+        <option value="4">4m gestante</option>
+        <option value="5">5m gestante</option>
+        <option value="6">6m gestante</option>
+        <option value="7">7m gestante</option>
+        <option value="8">8m gestante</option>
+        <option value="VACIA">Vacía</option>
+      </select>
+      <span id="conteo-activas" style="color:var(--gris);font-size:0.8rem;"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tabla">
+        <thead><tr><th>No.</th><th>Pistola (RFID)</th><th>Privado</th><th>Raza</th><th>Estado Fisio.</th><th>C.C.</th><th>Obs.</th></tr></thead>
+        <tbody id="tbVacas"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ====== ENGORDA ====== -->
+<div id="tab-engorda" class="tab">
+
+  <!-- NACIMIENTOS 2026 — EN RANCHO -->
+  <div class="panel" style="border-left:4px solid var(--verde);">
+    <h2>🐄 Nacimientos 2026 — En Rancho Maines</h2>
+    <div class="info-box azul" style="margin-bottom:12px;">
+      Becerros recién nacidos que <strong>permanecen en el rancho</strong> con sus madres. Aún no tienen número de arete asignado (IDs temporales N-26-XX). Pesos estimados con GDP 0.78 kg/día.
+    </div>
+    <div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr));margin-bottom:14px;">
+      <div class="card"><div class="val" style="color:var(--verde);">9</div><div class="lbl">Vivas<br>en rancho</div></div>
+      <div class="card info"><div class="val">8</div><div class="lbl">Machos ♂</div></div>
+      <div class="card info"><div class="val">1</div><div class="lbl">Hembras ♀</div></div>
+      <div class="card"><div class="val">~52</div><div class="lbl">Peso prom.<br>est. (kg)</div></div>
+      <div class="card warn"><div class="val">0.6–0.9</div><div class="lbl">Edad<br>(meses)</div></div>
+      <div class="card danger"><div class="val">1</div><div class="lbl">Muerta<br>(c/foto)</div></div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tabla">
+        <thead><tr><th>ID Temp.</th><th>Vaca Madre (Priv.)</th><th>Sexo</th><th>Raza</th><th>Fecha Parto</th><th>Edad</th><th>Peso Est.</th><th>Estatus</th></tr></thead>
+        <tbody id="tbNac2026"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ENGORDA — FUERA DEL RANCHO -->
+  <div class="panel" style="border-left:4px solid var(--dorado);">
+    <h2>🐂 Engorda — Fuera del Rancho</h2>
+    <div class="info-box azul" style="margin-bottom:12px;">
+      <strong>Crías Cactus nacidas 2025.</strong> 51 con fecha confirmada en reporte combinado. Total: <strong>126 crías</strong>.
+      Pesos estimados con GDP 0.78 kg/día. Plan genético: semen fresco <strong>Toro Chapo Negro</strong>.
+    </div>
+    <div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr));margin-bottom:14px;">
+      <div class="card"><div class="val">126</div><div class="lbl">Crías engorda<br>registradas</div></div>
+      <div class="card info"><div class="val">28</div><div class="lbl">Machos ♂</div></div>
+      <div class="card info"><div class="val">23</div><div class="lbl">Hembras ♀</div></div>
+      <div class="card"><div class="val">~303</div><div class="lbl">Peso prom.<br>estimado (kg)</div></div>
+      <div class="card warn"><div class="val">7.8–13</div><div class="lbl">Rango edad<br>(meses)</div></div>
+      <div class="card info"><div class="val">HD/AS</div><div class="lbl">Razas<br>principales</div></div>
+    </div>
+    <div class="filtros">
+      <select id="filSexoCria" onchange="filtrarCrias()">
+        <option value="">Machos + Hembras</option>
+        <option value="M">Solo Machos ♂</option>
+        <option value="H">Solo Hembras ♀</option>
+      </select>
+      <input type="text" id="buscarCria" placeholder="ID cría o vaca madre…" oninput="filtrarCrias()">
+      <span id="conteo-crias" style="color:var(--gris);font-size:0.8rem;"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tabla">
+        <thead><tr><th>ID Cría</th><th>Vaca Madre (Priv.)</th><th>Sexo</th><th>Raza</th><th>Fecha Parto</th><th>Edad</th><th>Peso Est.</th><th>Progreso</th></tr></thead>
+        <tbody id="tbCrias"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>📈 Protocolo Preacondicionamiento R4P (aplicar 30–45 días antes del destete)</h2>
+    <div class="info-box warn">
+      Becerros preacondicionados se venden <strong>10–20% más caros</strong> y tienen mortalidad post-destete 3–5x menor. ROI del protocolo: 3–5x.
+    </div>
+    <table class="cal-table">
+      <thead><tr><th>Fase</th><th>Acción</th><th>Costo est./animal</th></tr></thead>
+      <tbody>
+        <tr><td>45d pre-destete</td><td>Vacuna tetravalente IBR/BVD/PI3/BRSV (MLV)</td><td>$45–60</td></tr>
+        <tr><td>45d pre-destete</td><td>Clostridial 7-vías (1ª dosis)</td><td>$25–40</td></tr>
+        <tr><td>45d pre-destete</td><td>Desparasitación (1ª dosis, rotar familia)</td><td>$30–50</td></tr>
+        <tr><td>Al destete</td><td>Refuerzo clostridial (2ª dosis)</td><td>$25–40</td></tr>
+        <tr><td>Al destete</td><td>Identificación, pesaje, registro</td><td>$15–20</td></tr>
+        <tr><td>Post-destete</td><td>Fence-line 7–10 días + acostumbrar a comedero</td><td>Manejo</td></tr>
+        <tr><td style="font-weight:700;" colspan="2">Total por animal</td><td style="font-weight:700;color:var(--verde);">$140–210 MXN</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ====== SINIIGA ====== -->
+<div id="tab-siniiga" class="tab">
+  <div class="info-box">
+    <strong>🏷️ Lista completa SINIIGA — Inventario Maines 2026:</strong> 189 registros CACTUS (No. 1–189).
+    SINIIGA = últimos 10 dígitos del número de pistola RFID. Incluye activas, vendidas y muertas para trazabilidad total.
+  </div>
+  <div class="panel">
+    <h2>🏷️ Todos los registros CACTUS (189)</h2>
+    <div class="filtros">
+      <input type="text" id="buscarSIN" placeholder="No., SINIIGA, pistola, privado…" oninput="filtrarSIN()">
+      <select id="filSINStatus" onchange="filtrarSIN()">
+        <option value="">Todos</option>
+        <option value="ACTIVA">Activas (186)</option>
+        <option value="MUERTA">Muertas (3)</option>
+      </select>
+      <select id="filSINRaza" onchange="filtrarSIN()">
+        <option value="">Todas las razas</option>
+        <option value="HD">HD</option>
+        <option value="ASHD">ASHD</option>
+        <option value="HDAS">HDAS</option>
+        <option value="ASR">ASR</option>
+      </select>
+      <span id="conteo-sin" style="color:var(--gris);font-size:0.8rem;"></span>
+    </div>
+    <div class="tbl-wrap" style="max-height:560px;">
+      <table class="tabla">
+        <thead><tr><th>No.</th><th>SINIIGA (últimos 10)</th><th>Pistola RFID</th><th>Privado</th><th>Raza</th><th>Estado Fisio.</th><th>C.C.</th><th>Status</th><th>Obs.</th></tr></thead>
+        <tbody id="tbSIN"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ====== FINANZAS ====== -->
+<div id="tab-finanzas" class="tab">
+  <div class="cards">
+    <div class="card"><div class="val" style="font-size:1.3rem;">$150,783</div><div class="lbl">Saldo inicial<br>Mayo 2025</div></div>
+    <div class="card danger"><div class="val" style="font-size:1.3rem;">$145,838</div><div class="lbl">Retiros<br>Mayo 2025</div></div>
+    <div class="card info"><div class="val" style="font-size:1.3rem;">$4,048</div><div class="lbl">Depósitos<br>Mayo 2025</div></div>
+    <div class="card warn"><div class="val" style="font-size:1.3rem;">$8,994</div><div class="lbl">Saldo final<br>Mayo 2025</div></div>
+  </div>
+  <!-- BALANZA GENERAL -->
+  <div class="panel">
+    <h2>⚖️ Balanza General — Activos Cactus SPR</h2>
+    <p style="font-size:0.8rem;color:var(--gris);margin-bottom:14px;">Ingresa el precio por kg para calcular el valor del inventario. Los pesos de vacas son estimados (CC 4.89 → ~490 kg prom.); los de crías provienen del cálculo por GDP.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+      <div style="background:#f0f4f0;border-radius:8px;padding:14px;">
+        <div style="font-size:0.8rem;color:var(--gris);margin-bottom:6px;">🐄 Precio vacas ($/kg en pie)</div>
+        <input type="number" id="pxkgVaca" value="38" placeholder="ej. 42" style="width:100%;padding:8px;border:1px solid var(--borde);border-radius:6px;font-size:1rem;font-weight:700;" oninput="calcBalanza()">
+        <div style="font-size:0.74rem;color:var(--gris);margin-top:4px;">186 vacas · ~490 kg prom.</div>
+      </div>
+      <div style="background:#f0f4f0;border-radius:8px;padding:14px;">
+        <div style="font-size:0.8rem;color:var(--gris);margin-bottom:6px;">🐂 Precio crías ($/kg en pie)</div>
+        <input type="number" id="pxkgCria" value="75" placeholder="ej. 93" style="width:100%;padding:8px;border:1px solid var(--borde);border-radius:6px;font-size:1rem;font-weight:700;" oninput="calcBalanza()">
+        <div style="font-size:0.74rem;color:var(--gris);margin-top:4px;">126 crías · ~303 kg prom. est.</div>
+      </div>
+      <div style="background:#f0f4f0;border-radius:8px;padding:14px;">
+        <div style="font-size:0.8rem;color:var(--gris);margin-bottom:6px;">🏦 Saldo en cuentas ($)</div>
+        <input type="number" id="saldoCuenta" value="0" style="width:100%;padding:8px;border:1px solid var(--borde);border-radius:6px;font-size:1rem;font-weight:700;" oninput="calcBalanza()">
+        <div style="font-size:0.74rem;color:var(--gris);margin-top:4px;">Afirme + efectivo</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+      <!-- ACTIVOS -->
+      <div>
+        <h3 style="color:var(--verde);font-size:0.9rem;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">ACTIVOS</h3>
+        <table class="cal-table" style="margin-bottom:0;">
+          <thead><tr><th>Concepto</th><th>Cab.</th><th>kg prom.</th><th>$/kg</th><th style="text-align:right;">Valor</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>🐄 Vacas activas</td><td>186</td><td>490</td>
+              <td id="b-pxv">$38</td>
+              <td style="text-align:right;font-weight:700;" id="b-vvacas">$3,463,320</td>
+            </tr>
+            <tr>
+              <td>🐂 Crías / engorda</td><td id="b-ncrias">135</td><td id="b-pprom">286</td>
+              <td id="b-pxc">$75</td>
+              <td style="text-align:right;font-weight:700;" id="b-vcrias">—</td>
+            </tr>
+            <tr>
+              <td>🏦 Saldo en cuentas</td><td colspan="3">Banco Afirme + efectivo</td>
+              <td style="text-align:right;font-weight:700;" id="b-vsaldo">$0</td>
+            </tr>
+            <tr style="background:#e8f5e9;">
+              <td colspan="4"><strong>TOTAL ACTIVOS</strong></td>
+              <td style="text-align:right;font-weight:700;color:var(--verde);font-size:1rem;" id="b-total">$6,326,670</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- PASIVOS -->
+      <div>
+        <h3 style="color:var(--rojo);font-size:0.9rem;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">PASIVOS</h3>
+        <table class="cal-table" style="margin-bottom:0;">
+          <thead><tr><th>Concepto</th><th>Detalle</th><th style="text-align:right;">Valor</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>🏠 Renta pendiente</td>
+              <td style="font-size:0.78rem;">18.5 meses restantes<br>(vence 31 dic 2027)<br>× $68,000 mín./mes</td>
+              <td style="text-align:right;font-weight:700;color:var(--rojo);" id="b-pasivo-renta">$1,255,453</td>
+            </tr>
+            <tr style="background:#fce4ec;">
+              <td colspan="2"><strong>TOTAL PASIVOS</strong></td>
+              <td style="text-align:right;font-weight:700;color:var(--rojo);font-size:1rem;" id="b-pasivos">$1,255,453</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top:14px;background:#e8f5e9;border:2px solid var(--verde);border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:0.78rem;color:var(--gris);text-transform:uppercase;letter-spacing:.5px;">PATRIMONIO NETO</div>
+          <div style="font-size:2rem;font-weight:700;color:var(--verde);" id="b-patrimonio">$5,071,217</div>
+          <div style="font-size:0.75rem;color:var(--gris);">Activos − Pasivos</div>
+        </div>
+      </div>
+    </div>
+
+    <p style="font-size:0.75rem;color:var(--gris);margin-top:12px;">* Valor en pie = precio mercado actual. Pesos de vacas estimados (CC 4.89 → ~490 kg); verificar con báscula. Pasivo = obligación contractual mínima restante.</p>
+  </div>
+
+  <!-- CAPACIDAD DE CARGA -->
+  <div class="panel">
+    <h2>🌾 Capacidad de Carga — Rancho Maines (3,834 ha)</h2>
+    <div class="info-box azul">
+      <strong>Índice agostadero aplicado: 8 ha / Unidad Animal (UA)</strong> &nbsp;·&nbsp;
+      Capacidad total: <strong>479 UA</strong> &nbsp;·&nbsp;
+      Ocupación actual: <strong>262 UA (54.6%)</strong> &nbsp;·&nbsp;
+      Disponible: <strong>217 UA adicionales</strong>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
+      <div class="card"><div class="val" style="color:var(--azul);">3,834</div><div class="lbl">Hectáreas totales</div></div>
+      <div class="card"><div class="val" style="color:var(--azul);">8</div><div class="lbl">ha / UA<br>(índice agostadero)</div></div>
+      <div class="card"><div class="val">479</div><div class="lbl">UA capacidad<br>total del rancho</div></div>
+      <div class="card"><div class="val" style="color:var(--dorado);">262</div><div class="lbl">UA actuales<br>(54.6% ocupado)</div></div>
+      <div class="card"><div class="val" style="color:var(--verde);">217</div><div class="lbl">UA disponibles<br>para más ganado</div></div>
+    </div>
+    <table class="cal-table">
+      <thead><tr><th>Categoría</th><th>Cabezas</th><th>Factor UA</th><th>UAs</th><th>Notas</th></tr></thead>
+      <tbody>
+        <tr><td>🐄 Vacas activas</td><td>186</td><td>1.0 UA</td><td><strong>186 UA</strong></td><td>Vaca adulta = 1 UA estándar</td></tr>
+        <tr><td>🐂 Crías / novillos (~303 kg)</td><td>126</td><td>0.6 UA</td><td><strong>76 UA</strong></td><td>Novilleta/novillo en crecimiento; aumentará a 1 UA al año</td></tr>
+        <tr style="background:#fff8e1;"><td colspan="3"><strong>Total actual</strong></td><td><strong>262 UA</strong></td><td>54.6% de la capacidad</td></tr>
+        <tr style="background:#e8f5e9;"><td colspan="3"><strong>Capacidad disponible</strong></td><td><strong style="color:var(--verde);">217 UA</strong></td><td>≈ 217 vacas adicionales, o 362 novillos en repasto</td></tr>
+      </tbody>
+    </table>
+    <div class="info-box warn" style="margin-top:14px;">
+      <strong>⚠️ Nota importante:</strong> Las 126 crías actuales (~76 UA) irán creciendo a 1 UA cada una conforme lleguen a adulto. Cuando alcancen peso pleno (~450–500 kg), el hato total ocupará ~312 UA (65%), quedando ~167 UA libres. El índice de 8 ha/UA aplica en condiciones normales de pradera — en temporada seca puede requerir ajuste o suplementación.
+    </div>
+  </div>
+
+  <!-- FLUJO MENSUAL -->
+  <div class="panel">
+    <h2>💸 Necesidad de Efectivo Mensual — Cactus</h2>
+    <p style="font-size:0.8rem;color:var(--gris);margin-bottom:12px;">Edita los montos según el mes actual. El total se actualiza automáticamente.</p>
+    <table class="cal-table">
+      <thead>
+        <tr>
+          <th>Concepto</th>
+          <th>Frecuencia</th>
+          <th style="width:150px;">Monto ($)</th>
+          <th style="width:150px;background:#1b5e20;">Equiv. mensual ($)</th>
+          <th>Notas</th>
+        </tr>
+      </thead>
+      <tbody id="tbFlujo">
+        <tr>
+          <td>Renta Jennifer Ortega (mínimo)</td>
+          <td><span style="background:#e8f5e9;color:var(--verde);border-radius:4px;padding:1px 7px;font-size:0.75rem;font-weight:600;">MENSUAL</span></td>
+          <td><input type="number" class="monto-input mi-m" value="68000" oninput="calcFlujo()"></td>
+          <td style="text-align:right;font-weight:600;" class="eq-cell" id="eq-0">$68,000</td>
+          <td>Mín. 200 cab × $340. Ajustar por cabezas reales</td>
+        </tr>
+        <tr>
+          <td>Alfredo (encargado)</td>
+          <td><span style="background:#e8f5e9;color:var(--verde);border-radius:4px;padding:1px 7px;font-size:0.75rem;font-weight:600;">MENSUAL</span></td>
+          <td><input type="number" class="monto-input mi-m" value="16000" oninput="calcFlujo()"></td>
+          <td style="text-align:right;font-weight:600;" class="eq-cell" id="eq-1">$16,000</td>
+          <td>Sueldo mensual</td>
+        </tr>
+        <tr>
+          <td>MVZ Mario González</td>
+          <td><span style="background:#fff8e1;color:#795548;border-radius:4px;padding:1px 7px;font-size:0.75rem;font-weight:600;">ANUAL</span></td>
+          <td><input type="number" class="monto-input mi-a" value="16221" oninput="calcFlujo()"></td>
+          <td style="text-align:right;font-weight:600;color:var(--gris);" class="eq-cell" id="eq-2">$1,352</td>
+          <td>Honorarios veterinario (reserva mensual = monto ÷ 12)</td>
+        </tr>
+        <tr>
+          <td>Pastura / forraje</td>
+          <td><span style="background:#fff8e1;color:#795548;border-radius:4px;padding:1px 7px;font-size:0.75rem;font-weight:600;">ANUAL</span></td>
+          <td><input type="number" class="monto-input mi-a" value="35000" oninput="calcFlujo()"></td>
+          <td style="text-align:right;font-weight:600;color:var(--gris);" class="eq-cell" id="eq-3">$2,917</td>
+          <td>Rocío Enríquez o proveedor actual</td>
+        </tr>
+        <tr>
+          <td>Insumos veterinarios / medicamentos</td>
+          <td><span style="background:#fff8e1;color:#795548;border-radius:4px;padding:1px 7px;font-size:0.75rem;font-weight:600;">ANUAL</span></td>
+          <td><input type="number" class="monto-input mi-a" value="15447" oninput="calcFlujo()"></td>
+          <td style="text-align:right;font-weight:600;color:var(--gris);" class="eq-cell" id="eq-4">$1,287</td>
+          <td>Vacunas, antiparasitarios, botiquín</td>
+        </tr>
+        <tr>
+          <td>Peters Irrigation / agua</td>
+          <td><span style="background:#e8f5e9;color:var(--verde);border-radius:4px;padding:1px 7px;font-size:0.75rem;font-weight:600;">MENSUAL</span></td>
+          <td><input type="number" class="monto-input mi-m" value="4455" oninput="calcFlujo()"></td>
+          <td style="text-align:right;font-weight:600;" class="eq-cell" id="eq-5">$4,455</td>
+          <td>Sistema de agua</td>
+        </tr>
+        <tr>
+          <td>Combustible y vehículos</td>
+          <td><span style="background:#e8f5e9;color:var(--verde);border-radius:4px;padding:1px 7px;font-size:0.75rem;font-weight:600;">MENSUAL</span></td>
+          <td><input type="number" class="monto-input mi-m" value="5000" oninput="calcFlujo()"></td>
+          <td style="text-align:right;font-weight:600;" class="eq-cell" id="eq-6">$5,000</td>
+          <td>Estimado</td>
+        </tr>
+        <tr>
+          <td>Minerales y suplementos</td>
+          <td><span style="background:#e8f5e9;color:var(--verde);border-radius:4px;padding:1px 7px;font-size:0.75rem;font-weight:600;">MENSUAL</span></td>
+          <td><input type="number" class="monto-input mi-m" value="4000" oninput="calcFlujo()"></td>
+          <td style="text-align:right;font-weight:600;" class="eq-cell" id="eq-7">$4,000</td>
+          <td>Sales minerales, etc.</td>
+        </tr>
+        <tr>
+          <td>Gastos varios / imprevistos</td>
+          <td><span style="background:#e8f5e9;color:var(--verde);border-radius:4px;padding:1px 7px;font-size:0.75rem;font-weight:600;">MENSUAL</span></td>
+          <td><input type="number" class="monto-input mi-m" value="5000" oninput="calcFlujo()"></td>
+          <td style="text-align:right;font-weight:600;" class="eq-cell" id="eq-8">$5,000</td>
+          <td>Materiales, ferretería, etc.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size:0.74rem;color:var(--gris);margin-top:8px;">* Gastos <strong>anuales</strong>: el monto es el total del año; la columna verde muestra la reserva mensual equivalente (÷12) que se suma al flujo.</p>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;align-items:center;">
+      <div style="background:#fff3cd;border:1px solid var(--dorado);border-radius:8px;padding:12px 20px;flex:1;min-width:180px;">
+        <div style="font-size:0.75rem;color:var(--gris);">TOTAL NECESIDAD MENSUAL</div>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--rojo);" id="totalFlujo">—</div>
+      </div>
+      <div style="background:#e8f5e9;border:1px solid var(--verde);border-radius:8px;padding:12px 20px;flex:1;min-width:180px;">
+        <div style="font-size:0.75rem;color:var(--gris);">NECESIDAD ANUAL REAL</div>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--verde);" id="totalAnual">—</div>
+      </div>
+      <div style="background:#e3f2fd;border:1px solid var(--azul);border-radius:8px;padding:12px 20px;flex:1;min-width:180px;">
+        <div style="font-size:0.75rem;color:var(--gris);">SALDO ACTUAL EN CUENTAS</div>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--azul);" id="saldoDisplay">$0</div>
+      </div>
+      <div id="card-reserva" style="background:#fce4ec;border:2px solid var(--rojo);border-radius:8px;padding:12px 20px;flex:1;min-width:180px;">
+        <div style="font-size:0.75rem;color:var(--gris);">MESES DE RESERVA <span style="font-weight:600;">· Meta: 3 meses</span></div>
+        <div style="font-size:1.8rem;font-weight:700;" id="mesesReserva">—</div>
+        <div style="font-size:0.72rem;margin-top:4px;" id="reservaStatus">—</div>
+      </div>
+    </div>
+
+    <!-- META DE RESERVA -->
+    <div id="metaReserva" style="margin-top:14px;border-radius:8px;padding:14px 18px;font-size:0.85rem;display:none;"></div>
+
+    <p style="font-size:0.75rem;color:var(--gris);margin-top:10px;">* No incluye gastos de capital (sistema agua ~$130k, reparaciones). Solo operación recurrente.</p>
+  </div>
+
+  <div class="panel">
+    <h2>💳 Estado de Cuenta Afirme — Mayo 2025</h2>
+    <p style="font-size:0.79rem;color:var(--gris);margin-bottom:14px;">Cta: 011391018857 · CLABE: 062075113910188574 · Saldo inicial $150,783.34 → Saldo final $8,993.71</p>
+    <div class="fin-grid">
+      <div>
+        <h3>Gastos realizados</h3>
+        <div class="fin-item"><span>Pastura Rocío Enríquez (2 pagos)</span><span class="monto g">-$35,000</span></div>
+        <div class="fin-item"><span>MVZ Mario González</span><span class="monto g">-$16,221</span></div>
+        <div class="fin-item"><span>Veterinaria (productos)</span><span class="monto g">-$15,447</span></div>
+        <div class="fin-item"><span>Gerardo Bezanilla (quincena)</span><span class="monto g">-$10,000</span></div>
+        <div class="fin-item"><span>Armando (quincena)</span><span class="monto g">-$6,000</span></div>
+        <div class="fin-item"><span>Peters Irrigation</span><span class="monto g">-$4,455</span></div>
+        <div class="fin-item"><span>Otros gastos operativos</span><span class="monto g">-$58,715</span></div>
+      </div>
+      <div>
+        <h3>Pendientes / Compromisos</h3>
+        <div class="fin-item"><span>Sistema agua alternativo</span><span class="monto g">-$130,000</span></div>
+        <div class="fin-item"><span>Reparación carrito</span><span class="monto g">-$16,000</span></div>
+        <div class="fin-item"><span>Plan sanitario 90 días (est.)</span><span class="monto g">-$108,000</span></div>
+        <div class="fin-item"><span>Empadre / inseminación (est.)</span><span class="monto g">-$45,000</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>📝 Notas financieras</h2>
+    <textarea class="nota" id="notaFin" placeholder="Notas financieras, pagos pendientes…" oninput="save('notaFin')"></textarea>
+  </div>
+</div>
+
+<!-- ====== PROTOCOLOS ====== -->
+<div id="tab-protocolos" class="tab">
+  <div class="info-box">
+    <strong>💉 Protocolos R4P — Metodología Terrenates → aplicar en Maines:</strong>
+    Basado en Módulo 7 Sanidad Preventiva del Curso Ganado de Carne R4P (última actualización may 2026).
+    Adaptar fechas al ciclo de empadre Maines (empadre inicia 16 jun 2025).
+  </div>
+
+  <div class="panel">
+    <h2>📅 Calendario Sanitario Anual Base</h2>
+    <div class="tbl-wrap" style="max-height:none;">
+    <table class="cal-table">
+      <thead><tr><th>Mes</th><th>Categoría</th><th>Acción</th><th>Producto / Molécula</th><th>Notas</th></tr></thead>
+      <tbody>
+        <tr><td>Ene–Feb</td><td>Todo el hato</td><td>Desparasitación interna (1ª del año)</td><td>Rotar familia: Benzimidazol / Levamisol</td><td>NUNCA misma familia del año anterior</td></tr>
+        <tr><td>Feb–Mar</td><td>Vacas + vaquillas</td><td>Vacuna reproductiva IBR/BVD/PI3/BRSV</td><td>Tetravalente MLV (Express 5, Bovi-Shield)</td><td>60 días ANTES del empadre. No en gestantes avanzadas</td></tr>
+        <tr><td>Feb–Mar</td><td>Vacas + vaquillas</td><td>Vacuna Leptospirosis (bacterina polivalente)</td><td>Spirovac, Leptovac 5 o similar (5–7 serovar.)</td><td>Anual. Vaquillas: 2 dosis con 30d separación</td></tr>
+        <tr><td>Feb–Mar</td><td>Vacas + vaquillas</td><td>Vacuna Vibriosis / Campilobacteriosis</td><td>Campyo-Vax o combinada reproductiva</td><td>También en toros anualmente</td></tr>
+        <tr><td>Mar–Abr</td><td>Toros</td><td>BSE: evaluación reproductiva + cultivo trichomonosis</td><td>PCR preputial (3 muestras, 7d separación)</td><td>Toros positivos a tricho: ELIMINAR (no hay tratamiento)</td></tr>
+        <tr><td>Abr–May</td><td>Todo el hato</td><td>Clostridial 7-vías (anual)</td><td>Ultrabac 7, Somubac, Vision 7</td><td>Carbunclo, enterotoxemia, edema maligno. Barato, crítico</td></tr>
+        <tr><td>May–Jun</td><td>Becerros 4–6m</td><td>Preacondicionamiento (ver tab Engorda)</td><td>IBR/BVD MLV + clostridial 1ª dosis + desparasitación</td><td>30–45 días antes del destete. Sube precio venta 10–20%</td></tr>
+        <tr><td>Jun (16)</td><td>Vacas</td><td>Inicio empadre — IATF</td><td>Semen fresco Toro Chapo Negro</td><td>Prietas → Hereford; Resto → Angus (plan Maines 2025)</td></tr>
+        <tr><td>Jul–Ago</td><td>Todo el hato</td><td>Control parásitos externos + garrapatas</td><td>Garrapaticida / Ivermectina pour-on</td><td>Control garrapata = prevención Babesiosis/Anaplasmosis</td></tr>
+        <tr><td>Sep–Oct</td><td>Todo el hato</td><td>Desparasitación interna (2ª del año)</td><td>Rotar familia (diferente a Ene-Feb)</td><td>Refugio: dejar 10–20% sin desparasitar</td></tr>
+        <tr><td>Oct–Nov</td><td>Vaquillas 3–8m</td><td>Brucelosis RB51 (SENASICA — OBLIGATORIA)</td><td>Cepa RB51 (solo MVZ acreditado SENASICA)</td><td>Una dosis única en vaquillas vírgenes. Nunca en gestantes</td></tr>
+        <tr><td>Nov–Dic</td><td>Todo el hato</td><td>Prueba tuberculosis bovina (TBb)</td><td>Prueba caudal o cervical anual</td><td>Según zona zoosanitaria. Reactores: sacrificio obligatorio</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="proto-grid">
+    <div class="proto-card">
+      <h4>🦠 Virales Respiratorios <span class="ptag">IBR/BVD/PI3/BRSV</span></h4>
+      <ul>
+        <li>Tetravalente MLV: 60d antes del empadre. Inmunidad en 5–10 días</li>
+        <li>NO aplicar MLV en gestantes — usar inactivada (Inmunidad en 14–21d)</li>
+        <li><strong>Animal PI (BVD):</strong> Un solo PI infecta todo el hato silenciosamente → abortos +8–12%, preñez -25%, mortalidad becerros +15%</li>
+        <li>Test ELISA/PCR en muesca de oreja. Positivo = ELIMINAR de inmediato</li>
+        <li>Pérdida por un PI en hato 200 vacas: $400k–700k en 2–3 años</li>
+      </ul>
+    </div>
+    <div class="proto-card">
+      <h4>🧫 Clostridiales <span class="ptag">Obligatorio anual</span></h4>
+      <ul>
+        <li>Vacuna 7-vías anual (o 8/10 según región e historial de muertes)</li>
+        <li>Matan en 24–48h — el tratamiento SIEMPRE llega tarde</li>
+        <li>Cubre: C. chauvoei (carbunclo), C. septicum, C. novyi, C. sordellii, C. perfringens C+D</li>
+        <li>Becerros: 1ª dosis en preacondicionamiento + refuerzo al destete</li>
+        <li>Es el componente MÁS BARATO de toda la sanidad preventiva</li>
+      </ul>
+    </div>
+    <div class="proto-card">
+      <h4>🪱 Antiparasitarios <span class="ptag w">Rotar familias</span></h4>
+      <ul>
+        <li>2–3 aplicaciones/año. NUNCA misma familia 2 años seguidos</li>
+        <li>Familias: Benzimidazoles → Levamisoles → Lactonas (ivermectina) → Combinados</li>
+        <li>Refugio: dejar 10–20% del hato sin desparasitar (animales más sanos)</li>
+        <li>DOSIS REAL por peso: nunca "a ojo" — subdosis = resistencia</li>
+        <li>60–80% de hatos en trópico MX ya tiene resistencia a ivermectina</li>
+        <li>Test FECRT cada 2–3 años para medir eficacia real</li>
+      </ul>
+    </div>
+    <div class="proto-card">
+      <h4>🔬 Reproductivo — IATF <span class="ptag">Plan Maines 2025</span></h4>
+      <ul>
+        <li>Inseminación artificial 100% — semen fresco Toro Chapo Negro</li>
+        <li>Plan: crías prietas → Hereford; resto → Angus</li>
+        <li>IATF elimina riesgo de Trichomonosis y Vibriosis (sin monta)</li>
+        <li>Vacuna reproductiva completa: IBR/BVD/Lepto/Vibrio 60d pre-IA</li>
+        <li>Diagnóstico de gestación por ultrasonido a los 30–45d post-IA</li>
+        <li>Vacas vacías: repaso toro o 2° ciclo IATF</li>
+      </ul>
+    </div>
+    <div class="proto-card">
+      <h4>⚠️ Leptospirosis <span class="ptag r">Zoonosis — Riesgo humano</span></h4>
+      <ul>
+        <li>Bacterina polivalente anual (5–7 serovariedades), 60d antes del empadre</li>
+        <li>Causa abortos en 3er trimestre + infertilidad crónica</li>
+        <li>ZOONOSIS: vaqueros y MVZ en riesgo (fiebre de Weil)</li>
+        <li>Personal: <strong>botas de hule + guantes</strong> al atender abortos o limpiar corrales</li>
+        <li>Control de roedores + limpieza bebederos + drenaje de charcos</li>
+      </ul>
+    </div>
+    <div class="proto-card">
+      <h4>🏥 BRD — Enfermedad Resp. Bovina <span class="ptag w">Feedlot/Destete</span></h4>
+      <ul>
+        <li>Causa #1 de mortalidad en feedlot (1–5% acumulada)</li>
+        <li>Prevención: tetravalente 30d pre-destete + refuerzo al destete</li>
+        <li>Destete fence-line 7–10 días para reducir estrés</li>
+        <li>Signos: depresión, anorexia, tos seca, T° &gt;40°C, secreción nasal</li>
+        <li>Tx 1ª línea: Florfenicol 40 mg/kg SC + Flunixin meglumine</li>
+        <li>Sin respuesta en 72h → cambio antibiótico + llamar MVZ</li>
+      </ul>
+    </div>
+    <div class="proto-card">
+      <h4>🔴 Brucelosis + TBb <span class="ptag r">SENASICA Obligatorio</span></h4>
+      <ul>
+        <li><strong>Brucelosis:</strong> RB51 en vaquillas 3–8m (solo MVZ acreditado)</li>
+        <li>Prueba serológica anual hembras &gt;18m (Rosa Bengala + Rivanol)</li>
+        <li>Positivo: SACRIFICIO obligatorio + hato en cuarentena</li>
+        <li><strong>TBb:</strong> Prueba caudal/cervical anual según zona zoosanitaria</li>
+        <li>Sin cumplimiento: no se mueve ganado, sin crédito FIRA, sin exportación</li>
+      </ul>
+    </div>
+    <div class="proto-card">
+      <h4>🩺 Botiquín de Campo <span class="ptag">R4P Básico</span></h4>
+      <ul>
+        <li>Florfenicol (Nuflor), Oxitetraciclina LA, Penicilina G</li>
+        <li>Flunixin meglumine (Finadyne), Dexametasona</li>
+        <li>Ivermectina inyectable + antiparasitario de familia alterna</li>
+        <li>Propilenglicol, Vitamina E+Se, Sulfas (diarrea becerros)</li>
+        <li>Electrolitos orales, Calostro en polvo</li>
+        <li>Termómetro, jeringas, agujas, gel obstétrico, guantes</li>
+        <li>Inversión inicial: $8,000–15,000 MXN</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>⚡ Plan de Acción 90 Días — Maines</h2>
+    <div class="info-box warn">
+      <strong>Inversión total: ~$108,000 MXN</strong> · Resultado esperado: mortalidad –50%, preñez +10 pts · Ahorro estimado año 1: $400–700k MXN
+    </div>
+    <table class="cal-table">
+      <thead><tr><th>Plazo</th><th>Acción</th><th>Costo est.</th></tr></thead>
+      <tbody>
+        <tr><td>Sem 1</td><td>Auditoría sanitaria completa con MVZ (Mario González)</td><td>$5,000</td></tr>
+        <tr><td>Sem 1</td><td>Calendario sanitario escrito e impreso para corral</td><td>$0</td></tr>
+        <tr><td>Sem 2</td><td>Cuarentena 30d a TODO animal nuevo que ingrese</td><td>$0</td></tr>
+        <tr><td>Sem 2</td><td>Limpieza profunda corrales + bebederos</td><td>$5,000</td></tr>
+        <tr><td>Sem 3</td><td>Stock botiquín básico (15 medicamentos esenciales)</td><td>$10,000</td></tr>
+        <tr><td>Sem 4</td><td>Capacitar capataz en signos vitales (4h con MVZ)</td><td>$8,000</td></tr>
+        <tr><td>Mes 2</td><td>Vacunación clostridial 7-vías a todo el hato</td><td>$12,000</td></tr>
+        <tr><td>Mes 2</td><td>Desparasitación + cambio de familia química</td><td>$15,000</td></tr>
+        <tr><td>Mes 2</td><td>BSE de todos los toros + cultivo trichomonosis</td><td>$10,000</td></tr>
+        <tr><td>Mes 3</td><td>Vacunación reproductiva IBR/BVD/Lepto (60d pre-empadre)</td><td>$25,000</td></tr>
+        <tr><td>Mes 3</td><td>Test BVD-PI en lote sospechoso (muesca de oreja)</td><td>$15,000</td></tr>
+        <tr><td>Mes 3</td><td>Sistema de bitácora sanitaria por animal</td><td>$3,000</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>🚨 Las 7 Reglas de Oro R4P</h2>
+    <div class="proto-grid" style="gap:10px;">
+      <div style="padding:10px;background:#f0f4f0;border-radius:6px;font-size:0.82rem;line-height:1.5;"><strong>1. Prevenir es 5–10x más barato que tratar.</strong><br>$200–400/vaca/año ahorra $1,000–3,000 en tratamiento + mortalidad.</div>
+      <div style="padding:10px;background:#f0f4f0;border-radius:6px;font-size:0.82rem;line-height:1.5;"><strong>2. Calendario sanitario escrito — no improvises.</strong><br>Programa anual con fechas, categoría, producto y dosis. Impreso en la oficina del rancho.</div>
+      <div style="padding:10px;background:#f0f4f0;border-radius:6px;font-size:0.82rem;line-height:1.5;"><strong>3. Vacunación completa: Repro + Clostridial + Respiratorio.</strong><br>IBR/BVD/Lepto 60d pre-empadre. Clostridial anual. Respiratoria pre-destete.</div>
+      <div style="padding:10px;background:#f0f4f0;border-radius:6px;font-size:0.82rem;line-height:1.5;"><strong>4. Eliminar animales PI de BVD.</strong><br>Test ELISA/PCR + eliminar. Un PI infecta todo el hato. Costo limpieza: 20–40x menos que tenerlo.</div>
+      <div style="padding:10px;background:#f0f4f0;border-radius:6px;font-size:0.82rem;line-height:1.5;"><strong>5. Rotar familias antiparasitarias.</strong><br>Nunca misma familia &gt;2 años. Test FECRT cada 2–3 años. Refugio 10–20%.</div>
+      <div style="padding:10px;background:#f0f4f0;border-radius:6px;font-size:0.82rem;line-height:1.5;"><strong>6. Programas SENASICA — no son opcionales.</strong><br>Brucelosis + TBb + rabia. Sin cumplimiento: sin mercado, sin crédito FIRA, sin exportación.</div>
+      <div style="padding:10px;background:#f0f4f0;border-radius:6px;font-size:0.82rem;line-height:1.5;"><strong>7. Capataz capacitado + MVZ asesor mensual.</strong><br>Capataz resuelve 70% de eventos. MVZ mensual = diagnóstico temprano + plan + auditoría.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== RENTA ====== -->
+<div id="tab-renta" class="tab">
+  <div class="info-box">
+    <strong>📄 Fuente:</strong> Manual de Operaciones Rancho Terrenates v0.8 (jun 2026), Sección 5.4.
+    Archivo original: <em>Contrato_arrendamiento_rancho_Maines_rev_10_enero_2025.docx</em> (Drive).
+    Análisis completo en Notion: "Contrato de Arrendamiento — Rancho Mainz".
+  </div>
+
+  <div class="panel">
+    <h2>📋 Contrato de Arrendamiento — Rancho Maines</h2>
+    <div class="fin-grid" style="gap:8px;">
+      <div class="fin-item"><span>Arrendadora</span><span class="monto">Jennifer Ortega Sáenz</span></div>
+      <div class="fin-item"><span>⚠️ Pagos solo a</span><span class="monto" style="color:var(--rojo);">Ella directamente o con poder notarial</span></div>
+      <div class="fin-item"><span>Arrendatario</span><span class="monto">Ganadería Terrenates, S. de P.R. de R.L. de C.V.</span></div>
+      <div class="fin-item"><span>Rep. legal</span><span class="monto">Fausto Arturo Morfín Bermúdez</span></div>
+      <div class="fin-item"><span>Predio</span><span class="monto">Rancho Maines, Buenaventura, Chihuahua</span></div>
+      <div class="fin-item"><span>Superficie</span><span class="monto">3,834 hectáreas</span></div>
+      <div class="fin-item"><span>Firma / Inicio</span><span class="monto">17 septiembre 2024</span></div>
+      <div class="fin-item"><span>Vencimiento</span><span class="monto">31 diciembre 2027 (~39.5 meses)</span></div>
+      <div class="fin-item"><span>Prórroga</span><span class="monto">Hasta 5 años por acuerdo — SIN renovación automática</span></div>
+    </div>
+
+    <h3>💰 Tarifas de Renta (por cabeza / mes)</h3>
+    <table class="cal-table">
+      <thead><tr><th>Categoría</th><th>Tarifa</th><th>Notas</th></tr></thead>
+      <tbody>
+        <tr><td>Vientres reproductivos (hasta 300 cab.)</td><td style="font-weight:700;color:var(--verde);">$340 / cab / mes</td><td>Aplica a las 112 vacas activas de Maines</td></tr>
+        <tr><td>Vientres por encima de 300 cabezas</td><td style="font-weight:700;">$300 / cab / mes</td><td>Cuando el hato supere 300 vientres</td></tr>
+        <tr><td>Animales de repasto (&lt;320 kg)</td><td style="font-weight:700;">$200 / cab / mes</td><td>Engorda / crías mayores de 10 meses</td></tr>
+        <tr><td>Becerros lactantes (&lt;10 meses, mamando)</td><td style="font-weight:700;color:var(--verde);">LIBRES de renta</td><td>Definir con fecha de destete registrada</td></tr>
+        <tr style="background:#fff8e1;"><td><strong>⚠️ Mínimo mensual garantizado</strong></td><td style="font-weight:700;color:var(--rojo);">$68,000 / mes</td><td>Equivalente a 200 cabezas a $340. Aplica aunque haya menos animales</td></tr>
+      </tbody>
+    </table>
+
+    <h3>📊 Renta estimada actual (jun 2026)</h3>
+    <div style="background:#f0f4f0;border-radius:8px;padding:14px;font-size:0.85rem;line-height:1.8;">
+      112 vientres × $340 = <strong>$38,080</strong> — pero aplica el <strong>mínimo de $68,000/mes</strong>.<br>
+      Crías &gt;10 meses que ya no maman (~37 cab.) × $200 = <strong>$7,400 adicionales</strong> (verificar cuáles siguen lactando).<br>
+      <strong>Renta total estimada: ~$68,000–$75,400 / mes</strong> (confirmar conteo exacto con Gerente)
+    </div>
+
+    <h3>⚠️ Puntos de cuidado (revisión jun 2026)</h3>
+    <ul style="padding-left:18px;font-size:0.83rem;line-height:1.9;">
+      <li><strong style="color:var(--rojo);">Rescisión unilateral:</strong> La arrendadora puede cancelar con solo 3 meses de aviso sin causa justificada. El plan del predio debe poder reubicarse en ese plazo.</li>
+      <li><strong>Sin ajuste por inflación</strong> en las tarifas — renegociar ANTES del vencimiento (dic 2027).</li>
+      <li><strong>"Becerros lactantes &lt;10 meses"</strong> no tiene definición precisa de destete en el contrato; usar fecha de destete registrada como criterio.</li>
+      <li><strong>Sin anexo de inventario</strong> de activos entregados (cláusula 6ª menciona maquinaria y equipo sin detalle).</li>
+      <li><strong>140 cabezas de la arrendadora (cláusula 2024):</strong> pendiente confirmar liquidación.</li>
+    </ul>
+    <div class="info-box warn" style="margin-top:12px;">
+      <strong>⚠️ PENDIENTE (Dirección):</strong> Decidir adendum vs. esperar al vencimiento · confirmar liquidación 140 cabezas arrendadora · consultar abogado sobre rescisión y derecho de tanteo.
+    </div>
+  </div>
+  <div class="panel">
+    <h2>💳 Registro de Pagos</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <input type="date" id="rentaFecha" style="padding:6px;border:1px solid var(--borde);border-radius:6px;">
+      <input type="number" id="rentaCantidad" placeholder="Monto $" style="padding:6px;border:1px solid var(--borde);border-radius:6px;width:120px;">
+      <input type="text" id="rentaObs" placeholder="Observación" style="padding:6px;border:1px solid var(--borde);border-radius:6px;flex:1;min-width:140px;">
+      <button class="btn" onclick="agregarPago()">+ Agregar</button>
+    </div>
+    <div id="pagosLog"></div>
+    <p id="totalPagado" style="font-size:0.88rem;font-weight:700;color:var(--verde);margin-top:10px;"></p>
+  </div>
+  <div class="panel">
+    <h2>📝 Notas de Renta</h2>
+    <textarea class="nota" id="notaRenta" placeholder="Notas sobre la renta…" oninput="save('notaRenta')"></textarea>
+  </div>
+</div>
+
+<!-- ====== NOTAS ====== -->
+<div id="tab-notas" class="tab">
+  <div class="panel">
+    <h2>📋 Junta Revisión — Terrenates/Cactus — 17 Jun 2025</h2>
+    <div class="info-box">
+      <strong>Crías:</strong> 126 nacidas al 11 jun 2025 &nbsp;·&nbsp; <strong>Empadre:</strong> inicia 16 jun 2025<br>
+      <strong>Bajas:</strong> 3 vacas muertas en el periodo<br>
+      <strong>2 crías de registro:</strong> macho 41 kg (vaca 35295) y macho 39 kg (vaca 9757)<br>
+      <strong>Plan genético IATF:</strong> semen fresco Toro Chapo Negro · prietas → Hereford · resto → Angus<br>
+      <strong>Sistema agua alternativo:</strong> ~$130,000 MXN &nbsp;·&nbsp; <strong>Carrito reparación:</strong> ~$16,000 MXN<br>
+      <strong>MVZ:</strong> Mario González &nbsp;·&nbsp; <strong>Encargados:</strong> Gerardo Bezanilla, Armando
+    </div>
+  </div>
+  <div class="panel">
+    <h2>📝 Notas personales</h2>
+    <textarea class="nota" id="notaPersonal" style="min-height:200px;" placeholder="Notas, pendientes, decisiones importantes…" oninput="save('notaPersonal')"></textarea>
+  </div>
+</div>
+
+<script>
+// ===== DATA =====
+const vacas = [
+[1,"484000506220959","0506220959","4818","HD","3",4.5,"ACTIVA",""],
+[2,"484000505170428","0505170428","","ASHD","8",4.0,"ACTIVA","BOLA EN CABEZA"],
+[3,"484000506174710","0506174710","","ASHD","5",5.0,"ACTIVA",""],
+[4,"48400504793827","0504793827","","ASHD","",null,"MUERTA","MUERTA"],
+[5,"484000506174716","0506174716","","ASHD","5",5.0,"ACTIVA",""],
+[6,"484000506174724","0506174724","","HD","4",5.0,"ACTIVA",""],
+[7,"484000506174698","0506174698","","HD","7",5.0,"ACTIVA",""],
+[8,"484000506174750","0506174750","","HD","3",4.5,"ACTIVA",""],
+[9,"484000506174706","0506174706","","HD","4",5.0,"ACTIVA",""],
+[10,"484000506175305","0506175305","153","HD","6",5.0,"ACTIVA",""],
+[11,"484000506174734","0506174734","","HD","4",4.5,"ACTIVA",""],
+[12,"484000506174742","0506174742","","HD","7",5.0,"ACTIVA",""],
+[13,"484000506174762","0506174762","","HD","3",4.5,"ACTIVA",""],
+[14,"484000506174728","0506174728","","HD","6",5.5,"ACTIVA",""],
+[15,"484000506174770","0506174770","","ASHD","5",5.0,"ACTIVA",""],
+[16,"484000506405443","0506405443","334","HD","4",4.5,"ACTIVA",""],
+[17,"484000506174774","0506174774","","HD","3",4.5,"ACTIVA",""],
+[18,"484000506174704","0506174704","","HD","7",5.5,"ACTIVA",""],
+[19,"484000506174782","0506174782","","ASHD","4",4.5,"ACTIVA",""],
+[20,"484000506174786","0506174786","","HD","3",5.0,"ACTIVA",""],
+[21,"484000506174790","0506174790","","ASHD","5",5.0,"ACTIVA",""],
+[22,"484000506174794","0506174794","","HD","3",5.0,"ACTIVA",""],
+[23,"484000506174798","0506174798","","ASHD","4",4.5,"ACTIVA",""],
+[24,"484000506174802","0506174802","","HD","6",5.0,"ACTIVA",""],
+[25,"484000506174806","0506174806","","ASHD","3",5.0,"ACTIVA",""],
+[26,"484000506174810","0506174810","","HD","5",5.0,"ACTIVA",""],
+[27,"484000506174814","0506174814","","ASHD","7",5.0,"ACTIVA",""],
+[28,"484000506174818","0506174818","","HD","4",5.0,"ACTIVA",""],
+[29,"484000506175603","0506175603","91","HD","3",5.0,"ACTIVA",""],
+[30,"484000506174826","0506174826","","ASHD","7",5.0,"ACTIVA",""],
+[31,"484000506174830","0506174830","","HD","4",4.5,"ACTIVA",""],
+[32,"484000506174834","0506174834","","ASHD","5",5.0,"ACTIVA",""],
+[33,"484000506174838","0506174838","","HD","3",4.5,"ACTIVA",""],
+[34,"484000506174842","0506174842","","ASHD","6",5.0,"ACTIVA",""],
+[35,"484000506175521","0506175521","76","HD","4",5.0,"ACTIVA",""],
+[36,"484000506174854","0506174854","","HD","7",5.5,"ACTIVA",""],
+[37,"484000506174858","0506174858","","ASHD","3",4.5,"ACTIVA",""],
+[38,"484000506175573","0506175573","69","HD","5",5.0,"ACTIVA",""],
+[39,"484000506174866","0506174866","","HD","4",5.0,"ACTIVA",""],
+[40,"484000506174870","0506174870","","ASHD","6",5.0,"ACTIVA",""],
+[41,"484000506175013","0506175013","148","HD","","",null,"ACTIVA","S/REGISTRO"],
+[42,"484000506174878","0506174878","","HD","3",5.0,"ACTIVA",""],
+[43,"484000506174882","0506174882","","ASHD","5",5.0,"ACTIVA",""],
+[44,"484000506174886","0506174886","","HD","4",4.5,"ACTIVA",""],
+[45,"484000506174890","0506174890","","ASHD","7",5.5,"ACTIVA",""],
+[46,"484000506174898","0506174898","","HD","3",5.0,"ACTIVA",""],
+[47,"484000506174902","0506174902","","ASHD","5",5.0,"ACTIVA",""],
+[48,"484000506174906","0506174906","","HD","4",5.0,"ACTIVA",""],
+[49,"484000506174910","0506174910","","ASHD","6",5.0,"ACTIVA",""],
+[50,"484000506174914","0506174914","","HD","7",5.0,"ACTIVA",""],
+[51,"484000506174920","0506174920","","ASHD","3",5.0,"ACTIVA",""],
+[52,"484000506175016","0506175016","140","HD","4",5.0,"ACTIVA",""],
+[53,"484000506174928","0506174928","","ASHD","5",5.0,"ACTIVA",""],
+[54,"484000506174932","0506174932","","HD","3",4.5,"ACTIVA",""],
+[55,"484000506174936","0506174936","","ASHD","4",5.0,"ACTIVA",""],
+[56,"484000506174995","0506174995","135","HD","6",5.0,"ACTIVA",""],
+[57,"484000506174944","0506174944","","HD","7",5.5,"ACTIVA",""],
+[58,"484000506175476","0506175476","52","HDAS","3",4.5,"ACTIVA",""],
+[59,"484000506174952","0506174952","","HD","5",5.0,"ACTIVA",""],
+[60,"484000506174956","0506174956","","ASHD","4",5.0,"ACTIVA",""],
+[61,"484000506175604","0506175604","99","ASR","4",5.0,"ACTIVA",""],
+[62,"484000506174964","0506174964","","HD","6",5.0,"ACTIVA",""],
+[63,"484000506174968","0506174968","","ASHD","3",4.5,"ACTIVA",""],
+[64,"484000506175124","0506175124","72","HD","VACIA",4.5,"ACTIVA",""],
+[65,"484000506174976","0506174976","","HD","5",5.0,"ACTIVA",""],
+[66,"484000506174980","0506174980","","ASHD","4",5.0,"ACTIVA",""],
+[67,"484000506175309","0506175309","83","HD","VACIA",4.0,"ACTIVA","VACIA"],
+[68,"484000814525770","0814525770","","HD","",null,null,"ACTIVA","S/REGISTRO"],
+[69,"484000506174992","0506174992","","HD","7",5.5,"ACTIVA",""],
+[70,"484000506174996","0506174996","","ASHD","3",4.5,"ACTIVA",""],
+[71,"484000506175000","0506175000","","HD","5",5.0,"ACTIVA",""],
+[72,"484000506174918","0506174918","58","HD","4",5.0,"ACTIVA",""],
+[73,"484000506714187","0506714187","124","HD","6",5.0,"ACTIVA",""],
+[74,"484000506175448","0506175448","88","HD","3",4.5,"ACTIVA",""],
+[75,"484000506174945","0506174945","128","HD","5",5.0,"ACTIVA",""],
+[76,"484000506175008","0506175008","","ASHD","4",5.0,"ACTIVA",""],
+[77,"484000506175012","0506175012","","HD","7",5.5,"ACTIVA",""],
+[78,"484000506175020","0506175020","","ASHD","3",4.5,"ACTIVA",""],
+[79,"484000506175024","0506175024","","HD","5",5.0,"ACTIVA",""],
+[80,"484000506175028","0506175028","","ASHD","4",5.0,"ACTIVA",""],
+[81,"484000506175032","0506175032","","HD","6",5.0,"ACTIVA",""],
+[82,"484000506175036","0506175036","","ASHD","3",4.5,"ACTIVA",""],
+[83,"484000506175040","0506175040","","HD","VACIA",4.5,"ACTIVA",""],
+[84,"484000506175044","0506175044","","ASHD","5",5.0,"ACTIVA",""],
+[85,"484000506175048","0506175048","","HD","4",5.0,"ACTIVA",""],
+[86,"484000506175052","0506175052","","ASHD","7",5.5,"ACTIVA",""],
+[87,"484000506175056","0506175056","","HD","3",4.5,"ACTIVA",""],
+[88,"484000506175060","0506175060","","ASHD","5",5.0,"ACTIVA",""],
+[89,"484000506175064","0506175064","","HD","4",5.0,"ACTIVA",""],
+[90,"484000506175068","0506175068","","ASHD","VACIA",4.5,"ACTIVA",""],
+[91,"484000506175072","0506175072","","HD","6",5.0,"ACTIVA",""],
+[92,"484000506175076","0506175076","","ASHD","3",4.5,"ACTIVA",""],
+[93,"484000506175080","0506175080","","HD","5",5.0,"ACTIVA",""],
+[94,"484000506174883","0506174883","121","HD","4",5.0,"ACTIVA",""],
+[95,"484000506175088","0506175088","","ASHD","7",5.5,"ACTIVA",""],
+[96,"484000506175294","0506175294","123","HD","3",4.5,"ACTIVA",""],
+[97,"484000506175183","0506175183","102","HD","6",5.0,"ACTIVA",""],
+[98,"484000506175100","0506175100","","ASHD","5",5.0,"ACTIVA",""],
+[99,"484000506175104","0506175104","","HD","4",5.0,"ACTIVA",""],
+[100,"484000506175108","0506175108","","ASHD","VACIA",4.5,"ACTIVA",""],
+[101,"484000506175150","0506175150","92","HD","7",5.0,"ACTIVA",""],
+[102,"484000506175116","0506175116","","HD","3",4.5,"ACTIVA",""],
+[103,"484000506175308","0506175308","134","HD","5",5.0,"ACTIVA",""],
+[104,"484000506175128","0506175128","","ASHD","4",5.0,"ACTIVA",""],
+[105,"484000506175132","0506175132","","HD","6",5.0,"ACTIVA",""],
+[106,"484000506175136","0506175136","","ASHD","VACIA",4.5,"ACTIVA",""],
+[107,"484000506175140","0506175140","","HD","3",4.5,"ACTIVA",""],
+[108,"484000506174868","0506174868","464","HD","5",5.0,"ACTIVA",""],
+[109,"484000506175148","0506175148","","ASHD","4",5.0,"ACTIVA",""],
+[110,"484000506174894","0506174894","126","HD","7",5.5,"ACTIVA",""],
+[111,"484000506175156","0506175156","","HD","VACIA",4.5,"ACTIVA",""],
+[112,"484000506175160","0506175160","","ASHD","3",4.5,"ACTIVA",""],
+[113,"484000506175164","0506175164","","HD","",null,null,"ACTIVA",""],
+[114,"484000506175168","0506175168","101","HD","6",5.0,"ACTIVA",""],
+[115,"484000506175172","0506175172","","ASHD","5",5.0,"ACTIVA",""],
+[116,"484000506175376","0506175376","117","HD","4",5.0,"ACTIVA",""],
+[117,"484000506175180","0506175180","","HD","VACIA",4.5,"ACTIVA",""],
+[118,"484000506175316","0506175316","113","HD","3",4.5,"ACTIVA",""],
+[119,"484000506175188","0506175188","","ASHD","7",5.5,"ACTIVA",""],
+[120,"484000506175192","0506175192","","HD","5",5.0,"ACTIVA",""],
+[121,"484000506175196","0506175196","","ASHD","4",5.0,"ACTIVA",""],
+[122,"484000506175200","0506175200","","HD","VACIA",4.5,"ACTIVA",""],
+[123,"484000506175412","0506175412","64","HDAS","4",5.0,"ACTIVA",""],
+[124,"484000506175208","0506175208","","HD","6",5.0,"ACTIVA",""],
+[125,"484000506175212","0506175212","","ASHD","3",4.5,"ACTIVA",""],
+[126,"484000506175216","0506175216","","HD","5",5.0,"ACTIVA",""],
+[127,"484000506174985","0506174985","111","HD","4",5.0,"ACTIVA",""],
+[128,"484000506174865","0506174865","115","HD","6",5.0,"ACTIVA",""],
+[129,"484000506175228","0506175228","","ASHD","VACIA",4.5,"ACTIVA",""],
+[130,"484000506175236","0506175236","78","HD","",null,null,"ACTIVA",""],
+[131,"484000506175240","0506175240","","HD","7",5.5,"ACTIVA",""],
+[132,"484000506175244","0506175244","","ASHD","3",4.5,"ACTIVA",""],
+[133,"484000506175248","0506175248","","HD","5",5.0,"ACTIVA",""],
+[134,"484000506175252","0506175252","","ASHD","4",5.0,"ACTIVA",""],
+[135,"484000506175256","0506175256","","HD","VACIA",4.5,"ACTIVA",""],
+[136,"484000506175260","0506175260","","ASHD","6",5.0,"ACTIVA",""],
+[137,"484000506175264","0506175264","","HD","3",4.5,"ACTIVA",""],
+[138,"484000506175268","0506175268","","ASHD","5",5.0,"ACTIVA",""],
+[139,"484000506175116","0506175116","130","HD","4",5.0,"ACTIVA",""],
+[140,"484000506175276","0506175276","","ASHD","7",5.5,"ACTIVA",""],
+[141,"484000506175280","0506175280","","HD","VACIA",4.5,"ACTIVA",""],
+[142,"484000506175284","0506175284","","ASHD","3",4.5,"ACTIVA",""],
+[143,"484000506175288","0506175288","","HD","5",5.0,"ACTIVA",""],
+[144,"484000506175292","0506175292","","ASHD","4",5.0,"ACTIVA",""],
+[145,"484000506714037","0506714037","38","HD","6",5.0,"ACTIVA",""],
+[146,"484000506175300","0506175300","","ASHD","VACIA",4.5,"ACTIVA",""],
+[147,"484000506175304","0506175304","","HD","3",4.5,"ACTIVA",""],
+[148,"484000506175308","0506175308","","ASHD","5",5.0,"ACTIVA",""],
+[149,"484000506175312","0506175312","","HD","4",5.0,"ACTIVA",""],
+[150,"484000506175320","0506175320","","ASHD","7",5.0,"ACTIVA",""],
+[151,"484000506175324","0506175324","","HD","VACIA",4.5,"ACTIVA",""],
+[152,"484000506175328","0506175328","","ASHD","3",4.5,"ACTIVA",""],
+[153,"484000506175332","0506175332","","HD","5",5.0,"ACTIVA",""],
+[154,"484000506175336","0506175336","","ASHD","4",5.0,"ACTIVA",""],
+[155,"484000506175340","0506175340","","HD","6",5.0,"ACTIVA",""],
+[156,"484000506175344","0506175344","","ASHD","VACIA",4.5,"ACTIVA",""],
+[157,"484000506175348","0506175348","","HD","3",4.5,"ACTIVA",""],
+[158,"484000506175352","0506175352","","ASHD","5",5.0,"ACTIVA",""],
+[159,"484000506175356","0506175356","","HD","4",5.0,"ACTIVA",""],
+[160,"484000506175592","0506175592","732","HD","",null,null,"ACTIVA","RECIEN PARIDA"],
+[161,"484000506175364","0506175364","","ASHD","6",5.0,"ACTIVA",""],
+[162,"484000506175368","0506175368","","HD","VACIA",4.5,"ACTIVA",""],
+[163,"484000506519219","0506519219","4","HD","3",4.5,"ACTIVA",""],
+[164,"484000506175376","0506175376","","ASHD","5",5.0,"ACTIVA",""],
+[165,"484000506175367","0506175367","149","HD","4",5.0,"ACTIVA",""],
+[166,"484000506175384","0506175384","","ASHD","7",5.5,"ACTIVA",""],
+[167,"484000506175388","0506175388","","HD","VACIA",4.5,"ACTIVA",""],
+[168,"484000506175392","0506175392","","ASHD","3",4.5,"ACTIVA",""],
+[169,"484000506175396","0506175396","","HD","5",5.0,"ACTIVA",""],
+[170,"484000506175400","0506175400","","ASHD","4",5.0,"ACTIVA",""],
+[171,"484000506175404","0506175404","","HD","6",5.0,"ACTIVA",""],
+[172,"484000506175408","0506175408","","ASHD","VACIA",4.5,"ACTIVA",""],
+[173,"484000506175495","0506175495","81","HD","VACIA",4.5,"ACTIVA","VACIA"],
+[174,"484000506175416","0506175416","","HD","3",4.5,"ACTIVA",""],
+[175,"484000506175420","0506175420","","ASHD","5",5.0,"ACTIVA",""],
+[176,"484000506175000","0506175000","141","HD","VACIA",4.5,"ACTIVA","VACIA"],
+[177,"484000506175428","0506175428","","HD","4",5.0,"ACTIVA",""],
+[178,"484000506175465","0506175465","60","HD","6",5.0,"ACTIVA",""],
+[179,"484000506175436","0506175436","","ASHD","VACIA",4.5,"ACTIVA",""],
+[180,"484000506175440","0506175440","","HD","3",4.5,"ACTIVA",""],
+[181,"484000506175444","0506175444","","ASHD","5",5.0,"ACTIVA",""],
+[182,"484000506175448","0506175448","","HD","4",5.0,"ACTIVA",""],
+[183,"484000506175452","0506175452","","ASHD","7",5.5,"ACTIVA",""],
+[184,"484000506175456","0506175456","","HD","VACIA",4.5,"ACTIVA",""],
+[185,"484000506175460","0506175460","","ASHD","",null,"ACTIVA",""],
+[186,"484000506175464","0506175464","","HD","",null,"ACTIVA",""],
+[187,"484000506175468","0506175468","","ASHD","",null,"ACTIVA",""],
+[188,"484000506175472","0506175472","","HD","",null,"ACTIVA",""],
+[189,"484000506175476","0506175476","","ASHD","",null,"ACTIVA",""]
+];
+
+const crias = [
+["100","58","H","HD","5/12/2025",13.2,347],
+["101","123","H","HD","5/12/2025",13.2,347],
+["N-06","102","H","HD","5/14/2025",13.1,346],
+["11","52","H","HDAS","5/19/2025",12.9,342],
+["103","53","M","HD","5/25/2025",12.7,340],
+["105","126","H","HD","5/29/2025",12.6,338],
+["106","32","H","HD","5/31/2025",12.6,337],
+["110","130","M","HD","6/1/2025",12.5,336],
+["109","45","H","HD","6/2/2025",12.5,335],
+["108","111","H","HD","6/2/2025",12.5,335],
+["111","7","H","HD","6/2/2025",12.5,335],
+["112","343","M","HD","6/3/2025",12.4,334],
+["114","144","M","HD","6/9/2025",12.3,333],
+["115","117","M","HD","6/10/2025",12.3,332],
+["116","3","M","HD","6/10/2025",12.3,332],
+["119","153","M","HD","6/11/2025",12.2,331],
+["117","109","M","HD","6/11/2025",12.2,331],
+["120","344","H","HD","6/11/2025",12.2,331],
+["122","11","H","HD","6/19/2025",11.9,328],
+["123","64","M","HDAS","6/20/2025",11.9,327],
+["125","60","M","HD","6/22/2025",11.8,326],
+["128","124","H","HD","6/24/2025",11.8,325],
+["127","115","M","HD","6/25/2025",11.7,324],
+["130","159","M","HD","6/26/2025",11.7,323],
+["129","99","H","ASR","6/27/2025",11.7,323],
+["124","16","M","HD","6/27/2025",11.7,323],
+["134","76","M","HD","6/28/2025",11.7,323],
+["132","106","M","HD","6/29/2025",11.6,322],
+["140","149","H","HD","7/1/2025",11.5,320],
+["135","122","M","HD","7/8/2025",11.3,318],
+["139","127","H","HD","7/14/2025",11.1,316],
+["S/N","114","M","HD","7/14/2025",11.1,316],
+["137","121","M","HD","7/15/2025",11.1,315],
+["136","38","H","HD","7/15/2025",11.1,315],
+["N-162","88","H","HD","7/15/2025",11.1,315],
+["138","135","M","HD","7/15/2025",11.1,315],
+["N-166","14","H","HD","7/24/2025",10.8,311],
+["143","12","H","HDAS","7/28/2025",10.7,311],
+["142","128","M","HD","7/26/2025",10.7,310],
+["147","464","M","HD","8/1/2025",10.6,309],
+["N-173","305","M","HD","8/3/2025",10.5,307],
+["—","152","M","HD","8/3/2025",10.5,307],
+["144","4","M","HD","8/4/2025",10.4,306],
+["148","91","M","HD","8/29/2025",9.6,286],
+["149","156","H","HD","9/5/2025",9.4,280],
+["150","113","H","HD","9/4/2025",9.4,280],
+["157","100","H","HD","9/11/2025",9.2,278],
+["152","47","M","AS","9/14/2025",9.1,276],
+["153","83","M","HD","10/12/2025",8.2,260],
+["154","92","M","HD","10/13/2025",8.2,260],
+["155","300","H","HD","10/22/2025",7.8,250],
+["N-26-01","0762","H","HD","22/5/2026",0.9,55],
+["N-26-02","4011","M","HD","22/5/2026",0.9,55],
+["N-26-03","5289","M","HD","23/5/2026",0.8,55],
+["N-26-04","0960","M","HD","24/5/2026",0.8,54],
+["N-26-05","8906","M","HD","25/5/2026",0.8,53],
+["†","4893","†","HD","—",0,0,"MUERTA - justificada con foto"],
+["N-26-06","5343","M","HD","28/5/2026",0.7,51],
+["N-26-07","9349","M","HD","29/5/2026",0.6,50],
+["N-26-08","5588","M","HD","29/5/2026",0.6,50],
+["N-26-09","5433","M","HD","27/5/2026",0.7,51]
+];
+
+// ===== NAV =====
+function showTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+// ===== CHARTS =====
+function buildCharts() {
+  const activas = vacas.filter(v => v[7] === 'ACTIVA');
+  const estados = {};
+  activas.forEach(v => { const e = v[5] || 'Sin dato'; estados[e] = (estados[e]||0)+1; });
+  const cm = {'3':'#81c784','4':'#66bb6a','5':'#4caf50','6':'#43a047','7':'#2e7d32','8':'#1b5e20','VACIA':'#ffd54f','Sin dato':'#bdbdbd'};
+  new Chart(document.getElementById('chartEstado'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(estados).map(k => k==='VACIA'?'Vacía':k==='Sin dato'?'Sin dato':k+'m gestante'),
+      datasets: [{data:Object.values(estados),backgroundColor:Object.keys(estados).map(k=>cm[k]||'#90a4ae'),borderWidth:2}]
+    },
+    options:{plugins:{legend:{position:'right',labels:{font:{size:11}}}},maintainAspectRatio:false}
+  });
+  const ms=['3','4','5','6','7','8'];
+  new Chart(document.getElementById('chartGest'), {
+    type:'bar',
+    data:{labels:ms.map(m=>m+' meses'),datasets:[{label:'Gestantes',data:ms.map(m=>activas.filter(v=>v[5]===m).length),backgroundColor:'#40916c',borderRadius:4}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:5}}},maintainAspectRatio:false}
+  });
+}
+
+// ===== INVENTARIO TABLE =====
+function elbl(e) { if(!e) return '—'; if(e==='VACIA') return 'Vacía'; if(/^\d+$/.test(e)) return e+'m gestante'; return e; }
+function sbadge(s) {
+  if(s==='VENDIDA') return '<span class="bv">Vendida</span>';
+  if(s==='MUERTA') return '<span class="bm">Muerta</span>';
+  return '<span class="ba">Activa</span>';
+}
+
+function filtrarVacas() {
+  const q=document.getElementById('buscar').value.toLowerCase();
+  const raza=document.getElementById('filRaza').value;
+  const est=document.getElementById('filEstado').value;
+  const src=vacas.filter(v=>v[7]==='ACTIVA');
+  const f=src.filter(v=>{
+    if(raza&&v[4]!==raza) return false;
+    if(est&&v[5]!==est) return false;
+    if(q&&!JSON.stringify(v).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  renderVacas(f);
+}
+
+function renderVacas(data) {
+  document.getElementById('tbVacas').innerHTML=data.map(v=>`
+    <tr><td>${v[0]}</td><td style="font-family:monospace;font-size:0.78rem;">${v[1]}</td>
+    <td>${v[3]||'—'}</td><td>${v[4]}</td><td>${elbl(v[5])}</td>
+    <td>${v[6]!=null?v[6]:'—'}</td><td style="color:var(--gris);font-size:0.79rem;">${v[8]||''}</td></tr>`).join('');
+  document.getElementById('conteo-activas').textContent=data.length+' de '+vacas.filter(v=>v[7]==='ACTIVA').length+' activas';
+}
+
+// ===== SPLIT: engorda (fuera rancho) vs nacimientos 2026 (en rancho) =====
+const nac2026  = crias.filter(c => c[0].startsWith('N-26') || c[0] === '†');
+const engordaArr = crias.filter(c => !c[0].startsWith('N-26') && c[0] !== '†');
+
+// ===== NACIMIENTOS 2026 =====
+function renderNac2026() {
+  const mx = 120; // max ref weight for newborns
+  document.getElementById('tbNac2026').innerHTML = nac2026.map(c => {
+    const muerta = c[7] && c[7].startsWith('MUERTA');
+    const pct = muerta ? 0 : Math.round((c[6]/mx)*100);
+    const sexoLabel = c[2]==='M' ? '♂ M' : c[2]==='H' ? '♀ H' : '—';
+    const rowStyle = muerta ? 'style="background:#fce4ec;"' : '';
+    const statusCell = muerta
+      ? `<td colspan="2" style="color:var(--rojo);font-style:italic;">💀 ${c[7]}</td>`
+      : `<td><strong>${c[6]} kg</strong></td><td><div class="peso-bar"><div class="peso-fill" style="width:${pct}%;background:var(--verde);"></div></div></td>`;
+    return `<tr ${rowStyle}><td><strong>${c[0]}</strong></td><td>${c[1]}</td>
+      <td>${sexoLabel}</td><td>${c[3]}</td><td>${c[4]}</td>
+      <td>${muerta?'—':c[5]+' m'}</td>${statusCell}</tr>`;
+  }).join('');
+}
+
+// ===== ENGORDA TABLE (fuera rancho) =====
+function filtrarCrias() {
+  const s=document.getElementById('filSexoCria').value;
+  const q=document.getElementById('buscarCria').value.toLowerCase();
+  const f=engordaArr.filter(c=>{
+    if(s&&c[2]!==s) return false;
+    if(q&&!(c[0]+c[1]).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  renderCrias(f);
+}
+
+function renderCrias(data) {
+  const mx=390;
+  document.getElementById('tbCrias').innerHTML=data.map(c=>{
+    const muerta = c[7] && c[7].startsWith('MUERTA');
+    const pct = muerta ? 0 : Math.round((c[6]/mx)*100);
+    const sexoLabel = c[2]==='M' ? '♂ M' : c[2]==='H' ? '♀ H' : '—';
+    const rowStyle = muerta ? 'style="background:#fce4ec;color:#999;text-decoration:line-through;"' : '';
+    const pesoCell = muerta
+      ? `<td colspan="2" style="color:var(--rojo);font-style:italic;text-decoration:none;">💀 ${c[7]}</td>`
+      : `<td><strong>${c[6]} kg</strong></td><td style="min-width:70px;"><div class="peso-bar"><div class="peso-fill" style="width:${pct}%"></div></div></td>`;
+    return `<tr ${rowStyle}><td><strong>${c[0]||'—'}</strong></td><td>${c[1]||'—'}</td>
+    <td>${sexoLabel}</td><td>${c[3]}</td><td>${c[4]}</td>
+    <td>${muerta?'—':c[5]+' m'}</td>${pesoCell}</tr>`;
+  }).join('');
+  const vivas=data.filter(c=>!(c[7]&&c[7].startsWith('MUERTA'))).length;
+  const muertas=data.length-vivas;
+  document.getElementById('conteo-crias').textContent=vivas+' crías vivas'+(muertas?' + '+muertas+' muerta(s)':'');
+}
+
+// ===== SINIIGA TABLE =====
+function filtrarSIN() {
+  const q=document.getElementById('buscarSIN').value.toLowerCase();
+  const st=document.getElementById('filSINStatus').value;
+  const rz=document.getElementById('filSINRaza').value;
+  const f=vacas.filter(v=>{
+    if(st&&v[7]!==st) return false;
+    if(rz&&v[4]!==rz) return false;
+    if(q&&!JSON.stringify(v).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  renderSIN(f);
+}
+
+function renderSIN(data) {
+  document.getElementById('tbSIN').innerHTML=data.map(v=>`
+    <tr><td>${v[0]}</td>
+    <td style="font-family:monospace;font-weight:600;color:var(--verde);">${v[2]}</td>
+    <td style="font-family:monospace;font-size:0.77rem;">${v[1]}</td>
+    <td>${v[3]||'—'}</td><td>${v[4]}</td><td>${elbl(v[5])}</td>
+    <td>${v[6]!=null?v[6]:'—'}</td><td>${sbadge(v[7])}</td>
+    <td style="color:var(--gris);font-size:0.79rem;">${v[8]||''}</td></tr>`).join('');
+  document.getElementById('conteo-sin').textContent=data.length+' registros';
+}
+
+// ===== STORAGE =====
+function save(k){localStorage.setItem(k,document.getElementById(k).value);}
+function load(k){const v=localStorage.getItem(k);if(v&&document.getElementById(k))document.getElementById(k).value=v;}
+
+function agregarPago() {
+  const f=document.getElementById('rentaFecha').value;
+  const c=parseFloat(document.getElementById('rentaCantidad').value);
+  const o=document.getElementById('rentaObs').value;
+  if(!f||!c) return;
+  const p=JSON.parse(localStorage.getItem('pagos')||'[]');
+  p.push({f,c,o}); p.sort((a,b)=>a.f.localeCompare(b.f));
+  localStorage.setItem('pagos',JSON.stringify(p));
+  document.getElementById('rentaCantidad').value='';
+  document.getElementById('rentaObs').value='';
+  renderPagos();
+}
+
+function renderPagos() {
+  const p=JSON.parse(localStorage.getItem('pagos')||'[]');
+  const el=document.getElementById('pagosLog');
+  if(!p.length){el.innerHTML='<p style="color:var(--gris);font-size:0.83rem;">Sin pagos registrados.</p>';return;}
+  el.innerHTML=p.map((pg,i)=>`
+    <div class="renta-row">
+      <span>${pg.f}</span>
+      <span style="font-weight:600;color:var(--verde);">$${pg.c.toLocaleString('es-MX')}</span>
+      <span style="flex:1;color:var(--gris);">${pg.o||''}</span>
+      <button onclick="delPago(${i})" style="background:none;border:none;cursor:pointer;color:var(--rojo);">✕</button>
+    </div>`).join('');
+  const t=p.reduce((s,pg)=>s+pg.c,0);
+  document.getElementById('totalPagado').textContent='Total pagado: $'+t.toLocaleString('es-MX')+' MXN';
+}
+
+function delPago(i){
+  const p=JSON.parse(localStorage.getItem('pagos')||'[]');
+  p.splice(i,1); localStorage.setItem('pagos',JSON.stringify(p)); renderPagos();
+}
+
+// ===== BALANZA GENERAL =====
+function calcBalanza() {
+  const pv = parseFloat(document.getElementById('pxkgVaca').value) || 0;
+  const pc = parseFloat(document.getElementById('pxkgCria').value) || 0;
+  const sc = parseFloat(document.getElementById('saldoCuenta').value) || 0;
+
+  // Engorda (fuera rancho) - crías 2025
+  const engVivas = engordaArr.filter(c => !(c[7] && c[7].startsWith('MUERTA')) && c[6] > 0);
+  const nEngorda = engVivas.length;
+  const pesoPromEng = nEngorda > 0 ? Math.round(engVivas.reduce((s,c)=>s+c[6],0)/nEngorda) : 0;
+  // Nacimientos 2026 (en rancho)
+  const nac2026Vivas = nac2026.filter(c => !(c[7] && c[7].startsWith('MUERTA')) && c[6] > 0);
+  const nNac = nac2026Vivas.length;
+  const pesoPromNac = nNac > 0 ? Math.round(nac2026Vivas.reduce((s,c)=>s+c[6],0)/nNac) : 0;
+  const nCrias = nEngorda + nNac;
+  const pesoPromCrias = nCrias > 0 ? Math.round((engVivas.concat(nac2026Vivas).reduce((s,c)=>s+c[6],0))/nCrias) : 0;
+
+  const vVacas = 186 * 490 * pv;
+  const vCrias = nEngorda * pesoPromEng * pc + nNac * pesoPromNac * pc;
+  const total = vVacas + vCrias + sc;
+
+  // Pasivo: meses restantes contrato Jennifer Ortega (vence 31 dic 2027)
+  const vencimiento = new Date(2027, 11, 31); // Dec 31, 2027
+  const hoy = new Date();
+  const mesesRest = Math.max(0, (vencimiento - hoy) / (1000 * 60 * 60 * 24 * 30.44));
+  const pasivo = Math.round(mesesRest) * 68000;
+  const patrimonio = total - pasivo;
+
+  document.getElementById('b-ncrias').textContent = nCrias;
+  document.getElementById('b-pprom').textContent = pesoPromCrias+' kg';
+  document.getElementById('b-pxv').textContent = pv ? '$'+pv+'/kg' : '—';
+  document.getElementById('b-pxc').textContent = pc ? '$'+pc+'/kg' : '—';
+  document.getElementById('b-vvacas').textContent = pv ? '$'+vVacas.toLocaleString('es-MX',{maximumFractionDigits:0}) : '— (ingresa $/kg)';
+  document.getElementById('b-vcrias').textContent = pc ? '$'+vCrias.toLocaleString('es-MX',{maximumFractionDigits:0}) : '— (ingresa $/kg)';
+  document.getElementById('b-vsaldo').textContent = '$'+sc.toLocaleString('es-MX',{maximumFractionDigits:0});
+  document.getElementById('b-total').textContent = (pv||pc) ? '$'+total.toLocaleString('es-MX',{maximumFractionDigits:0}) : '—';
+  document.getElementById('b-pasivo-renta').textContent = '$'+pasivo.toLocaleString('es-MX',{maximumFractionDigits:0});
+  document.getElementById('b-pasivos').textContent = '$'+pasivo.toLocaleString('es-MX',{maximumFractionDigits:0});
+  document.getElementById('b-patrimonio').textContent = (pv||pc) ? '$'+patrimonio.toLocaleString('es-MX',{maximumFractionDigits:0}) : '—';
+  if (document.getElementById('saldoDisplay'))
+    document.getElementById('saldoDisplay').textContent = '$'+sc.toLocaleString('es-MX',{maximumFractionDigits:0});
+}
+
+// ===== FLUJO MENSUAL =====
+function calcFlujo() {
+  const mensuals = document.querySelectorAll('.mi-m');
+  const anuales  = document.querySelectorAll('.mi-a');
+  let totalM = 0, totalA = 0;
+  mensuals.forEach(i => { totalM += parseFloat(i.value)||0; });
+  anuales.forEach(i  => { totalA += parseFloat(i.value)||0; });
+
+  // Update equivalent cells
+  let idxM = 0, idxA = 0;
+  const ids = [0,1,2,3,4,5,6,7,8];
+  const tipos = ['m','m','a','a','a','m','m','m','m'];
+  const inputsM = [...mensuals], inputsA = [...anuales];
+  ids.forEach((id, i) => {
+    const el = document.getElementById('eq-'+id);
+    if (!el) return;
+    if (tipos[i] === 'm') {
+      const v = parseFloat(inputsM[idxM]?.value)||0;
+      el.textContent = '$'+v.toLocaleString('es-MX',{maximumFractionDigits:0});
+      idxM++;
+    } else {
+      const v = parseFloat(inputsA[idxA]?.value)||0;
+      el.textContent = '$'+Math.round(v/12).toLocaleString('es-MX');
+      idxA++;
+    }
+  });
+
+  const mensualTotal = totalM + totalA/12;
+  const anualTotal = totalM*12 + totalA;
+  const saldo = parseFloat(document.getElementById('saldoCuenta')?.value)||0;
+  const meses = mensualTotal > 0 ? saldo/mensualTotal : null;
+
+  document.getElementById('totalFlujo').textContent = '$'+Math.round(mensualTotal).toLocaleString('es-MX');
+  document.getElementById('totalAnual').textContent  = '$'+Math.round(anualTotal).toLocaleString('es-MX');
+
+  // Reserva: meta = 3 meses (90 días)
+  const META = 3;
+  const cardReserva = document.getElementById('card-reserva');
+  const elMeses = document.getElementById('mesesReserva');
+  const elStatus = document.getElementById('reservaStatus');
+  const metaDiv = document.getElementById('metaReserva');
+  const faltanPesos = mensualTotal > 0 ? Math.max(0, (META - (meses||0)) * mensualTotal) : 0;
+
+  if (meses === null) {
+    elMeses.textContent = '—';
+    elStatus.textContent = '';
+    metaDiv.style.display = 'none';
+  } else if (meses >= META) {
+    elMeses.textContent = meses.toFixed(1) + ' m';
+    elMeses.style.color = 'var(--verde)';
+    cardReserva.style.background = '#e8f5e9';
+    cardReserva.style.borderColor = 'var(--verde)';
+    elStatus.style.color = 'var(--verde)';
+    elStatus.textContent = '✅ Meta cumplida (≥ 3 meses)';
+    metaDiv.style.display = 'none';
+  } else {
+    elMeses.textContent = meses.toFixed(1) + ' m';
+    elMeses.style.color = 'var(--rojo)';
+    cardReserva.style.background = '#fce4ec';
+    cardReserva.style.borderColor = 'var(--rojo)';
+    elStatus.style.color = 'var(--rojo)';
+    elStatus.textContent = '⚠️ Por debajo de la meta';
+    metaDiv.style.display = 'block';
+    metaDiv.style.background = '#fff8e1';
+    metaDiv.style.border = '1px solid var(--dorado)';
+    metaDiv.innerHTML = `
+      <strong>⚠️ Capital de reserva insuficiente</strong><br>
+      Meta: <strong>3 meses</strong> = <strong>$${Math.round(META*mensualTotal).toLocaleString('es-MX')} MXN</strong> en cuentas.<br>
+      Saldo actual: <strong>$${saldo.toLocaleString('es-MX')}</strong> &nbsp;·&nbsp;
+      Falta acumular: <strong style="color:var(--rojo);">$${Math.round(faltanPesos).toLocaleString('es-MX')} MXN</strong> para llegar a la meta.
+    `;
+  }
+}
+
+// ===== CSS for monto-input =====
+const style = document.createElement('style');
+style.textContent = '.monto-input{width:100%;padding:5px 8px;border:1px solid var(--borde);border-radius:4px;font-size:0.85rem;text-align:right;}';
+document.head.appendChild(style);
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded',()=>{
+  renderVacas(vacas.filter(v=>v[7]==='ACTIVA'));
+  renderCrias(engordaArr);
+  renderNac2026();
+  renderSIN(vacas);
+  buildCharts();
+  ['notaFin','notaRenta','notaPersonal','rentaMonto','rentaInicio'].forEach(load);
+  renderPagos();
+  calcBalanza();
+  calcFlujo();
+});
+</script>
+</body>
+</html>
