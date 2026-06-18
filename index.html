@@ -1171,3 +1171,19 @@ function renderSIN(data) {
     <td style="color:var(--gris);font-size:0.79rem;">${v[8]||''}</td></tr>`).join('');
   document.getElementById('conteo-sin').textContent=data.length+' registros';
 }
+
+// Expose all event-handler functions to global scope
+window.showTab = showTab;
+window.filtrarVacas = filtrarVacas;
+window.filtrarCrias = filtrarCrias;
+window.filtrarSIN = filtrarSIN;
+
+// Init
+buildCharts();
+renderVacas(vacas.filter(v => v[7] === 'ACTIVA'));
+renderNac2026();
+renderCrias(crias);
+renderSIN(vacas);
+</script>
+</body>
+</html>
